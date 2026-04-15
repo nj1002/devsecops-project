@@ -5,6 +5,13 @@ metadata:
 spec:
   containers:
     - name: flask-container
-      image: flask-app
+      image: nj1002/devsecops-project:latest
+      imagePullPolicy: IfNotPresent
       ports:
         - containerPort: 5000
+      livenessProbe:
+        httpGet:
+          path: /
+          port: 5000
+        initialDelaySeconds: 10
+        periodSeconds: 5
