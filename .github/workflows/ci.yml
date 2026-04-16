@@ -1,4 +1,4 @@
-name: DevSecOps CI Pipeline
+name: DevSecOps CI Pipeline - Strict Security
 
 on:
   push:
@@ -12,14 +12,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Docker
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # --- PHASE DE BUILD ---
       - name: Build Docker image
         run: docker build -t flask-app .
 
+      # --- PHASE DE QUALITÉ (LINT) ---
       - name: Lint Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
 
       - name: Install yamllint
         run: pip install yamllint
@@ -27,12 +31,13 @@ jobs:
       - name: Lint Kubernetes YAML
         run: yamllint k8s.yaml
 
+      # --- PHASE DE SÉCURITÉ TRIVY (SCA & IMAGE) ---
       - name: Scan filesystem with Trivy (SCA)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
           format: 'table'
-          exit-code: '1' # Bloque si vulnérabilité trouvée
+          exit-code: '1' # Bloque le pipeline si vulnérabilités trouvées
           severity: 'CRITICAL,HIGH'
 
       - name: Scan Docker image with Trivy
@@ -40,11 +45,13 @@ jobs:
         with:
           image-ref: flask-app
           format: 'table'
-          exit-code: '1'
+          exit-code: '1' # Bloque si l'image contient des failles système
+          severity: 'CRITICAL,HIGH'
 
+      # --- PHASE DE CONFORMITÉ CONFTEST (POLICY-AS-CODE) ---
       - name: Test Politique Sécurité (Conftest)
         uses: instrumenta/conftest-action@master
         with:
-          # Assure-toi que le fichier s'appelle bien k8s.yaml
           files: k8s.yaml
-          policy: policy
+          policy: policy/
+          # Conftest bloquera automatiquement si une règle "deny" est déclenchée
