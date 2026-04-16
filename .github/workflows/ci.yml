@@ -20,35 +20,31 @@ jobs:
 
       - name: Lint Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
-        continue-on-error: true
 
       - name: Install yamllint
         run: pip install yamllint
 
       - name: Lint Kubernetes YAML
         run: yamllint k8s.yaml
-        continue-on-error: true
 
       - name: Scan filesystem with Trivy (SCA)
         uses: aquasecurity/trivy-action@master
-        continue-on-error: true # Permet de passer à la suite même si Trivy trouve des erreurs
         with:
           scan-type: 'fs'
           format: 'table'
-          exit-code: '1' 
+          exit-code: '1' # Bloque si vulnérabilité trouvée
           severity: 'CRITICAL,HIGH'
 
       - name: Scan Docker image with Trivy
         uses: aquasecurity/trivy-action@master
-        continue-on-error: true # Permet de voir aussi le résultat du scan d'image
         with:
           image-ref: flask-app
           format: 'table'
           exit-code: '1'
-          severity: 'CRITICAL,HIGH'
 
       - name: Test Politique Sécurité (Conftest)
         uses: instrumenta/conftest-action@master
         with:
+          # Assure-toi que le fichier s'appelle bien k8s.yaml
           files: k8s.yaml
-          policy: policy/ # Assure-toi que tes règles .rego sont dans ce dossier
+          policy: policy
