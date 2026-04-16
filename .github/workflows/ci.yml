@@ -1,34 +1,50 @@
-name: CI DevSecOps Pipeline
+name: DevSecOps CI Pipeline
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ "main" ]
 
 jobs:
   build-and-scan:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout du code
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Build de l'image Docker
-        run: docker build -t flask-app:${{ github.sha }} .
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
 
-      - name: Scan Trivy (Système de fichiers)
+      - name: Build Docker image
+        run: docker build -t flask-app .
+
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Lint Kubernetes YAML
+        run: yamllint k8s.yaml
+
+      - name: Scan filesystem with Trivy (SCA)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
           format: 'table'
-          exit-code: '0' # On ne bloque pas encore le pipeline pour voir les logs
+          exit-code: '1' # Bloque si vulnérabilité trouvée
           severity: 'CRITICAL,HIGH'
 
-      - name: Scan Trivy (Image Docker)
+      - name: Scan Docker image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'flask-app:${{ github.sha }}'
+          image-ref: flask-app
           format: 'table'
-          severity: 'CRITICAL,HIGH'
-      
+          exit-code: '1'
+
       - name: Test Politique Sécurité (Conftest)
         uses: instrumenta/conftest-action@master
         with:
-          files: deployment.yaml
+          # Assure-toi que le fichier s'appelle bien k8s.yaml
+          files: k8s.yaml
           policy: policy
