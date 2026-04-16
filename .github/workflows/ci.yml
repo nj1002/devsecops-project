@@ -1,4 +1,4 @@
-name: Strict DevSecOps Pipeline
+name: DevSecOps CI Pipeline - Strict Security
 
 on:
   push:
@@ -15,39 +15,43 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 1. Construction de l'image (nécessaire pour le scan d'image)
+      # --- PHASE DE BUILD ---
       - name: Build Docker image
         run: docker build -t flask-app .
 
-      # 2. Blocage sur le Linting Docker (Bonnes pratiques)
+      # --- PHASE DE QUALITÉ (LINT) ---
       - name: Lint Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: Dockerfile
-          # Le pipeline s'arrête ici si le Dockerfile est mal structuré
 
-      # 3. Blocage sur les vulnérabilités du code (SCA)
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Lint Kubernetes YAML
+        run: yamllint k8s.yaml
+
+      # --- PHASE DE SÉCURITÉ TRIVY (SCA & IMAGE) ---
       - name: Scan filesystem with Trivy (SCA)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
           format: 'table'
-          exit-code: '1' # FORCE l'échec du job si vulnérabilité trouvée
-          severity: 'CRITICAL,HIGH' # On bloque pour le niveau Élevé et Critique
+          exit-code: '1' # Bloque le pipeline si vulnérabilités trouvées
+          severity: 'CRITICAL,HIGH'
 
-      # 4. Blocage sur les vulnérabilités de l'image (Packages OS)
       - name: Scan Docker image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: flask-app
           format: 'table'
-          exit-code: '1' # Bloque si l'image de base (ex: Python 3.9) est corrompue
+          exit-code: '1' # Bloque si l'image contient des failles système
           severity: 'CRITICAL,HIGH'
 
-      # 5. Blocage sur la conformité Kubernetes (Policy-as-Code)
+      # --- PHASE DE CONFORMITÉ CONFTEST (POLICY-AS-CODE) ---
       - name: Test Politique Sécurité (Conftest)
         uses: instrumenta/conftest-action@master
         with:
           files: k8s.yaml
           policy: policy/
-          # Conftest renvoie par défaut un code d'erreur s'il y a un "deny"
+          # Conftest bloquera automatiquement si une règle "deny" est déclenchée
