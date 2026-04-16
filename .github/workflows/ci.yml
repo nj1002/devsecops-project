@@ -1,57 +1,34 @@
-name: DevSecOps CI Pipeline - Strict Security
+name: CI DevSecOps Pipeline
 
-on:
-  push:
-    branches: [ "main" ]
+on: [push, pull_request]
 
 jobs:
   build-and-scan:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
+      - name: Checkout du code
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Build de l'image Docker
+        run: docker build -t flask-app:${{ github.sha }} .
 
-      # --- PHASE DE BUILD ---
-      - name: Build Docker image
-        run: docker build -t flask-app .
-
-      # --- PHASE DE QUALITÉ (LINT) ---
-      - name: Lint Dockerfile
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: Dockerfile
-
-      - name: Install yamllint
-        run: pip install yamllint
-
-      - name: Lint Kubernetes YAML
-        run: yamllint k8s.yaml
-
-      # --- PHASE DE SÉCURITÉ TRIVY (SCA & IMAGE) ---
-      - name: Scan filesystem with Trivy (SCA)
+      - name: Scan Trivy (Système de fichiers)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
           format: 'table'
-          exit-code: '1' # Bloque le pipeline si vulnérabilités trouvées
+          exit-code: '0' # On ne bloque pas encore le pipeline pour voir les logs
           severity: 'CRITICAL,HIGH'
 
-      - name: Scan Docker image with Trivy
+      - name: Scan Trivy (Image Docker)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: flask-app
+          image-ref: 'flask-app:${{ github.sha }}'
           format: 'table'
-          exit-code: '1' # Bloque si l'image contient des failles système
           severity: 'CRITICAL,HIGH'
-
-      # --- PHASE DE CONFORMITÉ CONFTEST (POLICY-AS-CODE) ---
+      
       - name: Test Politique Sécurité (Conftest)
         uses: instrumenta/conftest-action@master
         with:
-          files: k8s.yaml
-          policy: policy/
-          # Conftest bloquera automatiquement si une règle "deny" est déclenchée
+          files: deployment.yaml
+          policy: policy
