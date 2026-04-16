@@ -27,21 +27,24 @@ jobs:
       - name: Lint Kubernetes YAML
         run: yamllint k8s.yaml
 
-      - name: Scan filesystem with Trivy
+      - name: Scan filesystem with Trivy (SCA)
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: fs
-          format: table
+          scan-type: 'fs'
+          format: 'table'
+          exit-code: '1' # Bloque si vulnérabilité trouvée
+          severity: 'CRITICAL,HIGH'
 
       - name: Scan Docker image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: flask-app
-          format: table
-     - name: Test Politique Sécurité (Conftest)
-      uses: instrumenta/conftest-action@master
-      with:
-        files: deployment.yaml
-        policy: policy
+          format: 'table'
+          exit-code: '1'
 
-      - name: Run Conftest policy check  quel est l'erreur ?
+      - name: Test Politique Sécurité (Conftest)
+        uses: instrumenta/conftest-action@master
+        with:
+          # Assure-toi que le fichier s'appelle bien k8s.yaml
+          files: k8s.yaml
+          policy: policy
