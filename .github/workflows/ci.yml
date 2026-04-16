@@ -38,11 +38,11 @@ jobs:
         with:
           image-ref: flask-app
           format: table
-      - name: Install Conftest
-        run: |
-          wget https://github.com/open-policy-agent/conftest/releases/latest/download/conftest_Linux_x86_64.tar.gz
-          tar xzf conftest_Linux_x86_64.tar.gz
-          sudo mv conftest /usr/local/bin
+     - name: Test Politique Sécurité (Conftest)
+      uses: instrumenta/conftest-action@master
+      with:
+        files: deployment.yaml
+        policy: policy
 
       - name: Run Conftest policy check
         run: conftest test k8s.yaml --policy policy/
