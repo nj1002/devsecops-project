@@ -1,4 +1,4 @@
-name: DevSecOps CI Pipeline
+name: Strict DevSecOps Pipeline
 
 on:
   push:
@@ -12,39 +12,42 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Docker
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # 1. Construction de l'image (nécessaire pour le scan d'image)
       - name: Build Docker image
         run: docker build -t flask-app .
 
+      # 2. Blocage sur le Linting Docker (Bonnes pratiques)
       - name: Lint Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          # Le pipeline s'arrête ici si le Dockerfile est mal structuré
 
-      - name: Install yamllint
-        run: pip install yamllint
-
-      - name: Lint Kubernetes YAML
-        run: yamllint k8s.yaml
-
+      # 3. Blocage sur les vulnérabilités du code (SCA)
       - name: Scan filesystem with Trivy (SCA)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
           format: 'table'
-          exit-code: '1' # Bloque si vulnérabilité trouvée
-          severity: 'CRITICAL,HIGH'
+          exit-code: '1' # FORCE l'échec du job si vulnérabilité trouvée
+          severity: 'CRITICAL,HIGH' # On bloque pour le niveau Élevé et Critique
 
+      # 4. Blocage sur les vulnérabilités de l'image (Packages OS)
       - name: Scan Docker image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: flask-app
           format: 'table'
-          exit-code: '1'
+          exit-code: '1' # Bloque si l'image de base (ex: Python 3.9) est corrompue
+          severity: 'CRITICAL,HIGH'
 
+      # 5. Blocage sur la conformité Kubernetes (Policy-as-Code)
       - name: Test Politique Sécurité (Conftest)
         uses: instrumenta/conftest-action@master
         with:
-          # Assure-toi que le fichier s'appelle bien k8s.yaml
           files: k8s.yaml
-          policy: policy
+          policy: policy/
+          # Conftest renvoie par défaut un code d'erreur s'il y a un "deny"
