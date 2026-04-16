@@ -1,4 +1,4 @@
-```yaml
+yaml
 name: DevSecOps CI Pipeline
 
 on:
