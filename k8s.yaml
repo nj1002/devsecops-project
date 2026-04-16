@@ -1,19 +1,21 @@
-apiVersion: v1
+apiVersion: apps/v1
 kind: Pod
 metadata:
   name: flask-app
 spec:
-  containers:
-    - name: flask-container
-      image: nj1002/devsecops-project:latest
-      imagePullPolicy: IfNotPresent
-      ports:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flask
+  template:
+    metadata:
+      labels:
+        app: flask
+    spec:
+      containers:
+      - name: flask-container
+        image: mon-app-flask:latest
+        ports:
         - containerPort: 5000
-      livenessProbe:
-        httpGet:
-          path: /
-          port: 5000
-        initialDelaySeconds: 10
-        periodSeconds: 5
-      securityContext:
-        allowPrivilegeEscalation: true
+        securityContext:
+          allowPrivilegeEscalation: true
